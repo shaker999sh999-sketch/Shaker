@@ -22,9 +22,6 @@ h2.sec{margin:20px 2px 8px;color:#E8E4DE}
 
 /* ===== الخلفية الفضائية المتحركة ===== */
 #space{position:fixed;top:0;right:0;bottom:0;left:0;z-index:0;pointer-events:none;overflow:hidden;background:radial-gradient(1200px 800px at 70% -10%,#16223F 0%,#0A1024 45%,#070A14 100%)}
-.stars,.stars2{position:absolute;top:0;right:0;bottom:0;left:0;background-repeat:repeat}
-.stars{background-image:radial-gradient(1.6px 1.6px at 22px 34px,#fff 55%,transparent 60%),radial-gradient(1.2px 1.2px at 78px 92px,#CFE3FF 55%,transparent 60%),radial-gradient(1px 1px at 140px 44px,#fff 55%,transparent 60%),radial-gradient(1.4px 1.4px at 190px 140px,#FFE9C4 55%,transparent 60%);background-size:230px 230px;animation:tw 3.4s ease-in-out infinite alternate}
-.stars2{background-image:radial-gradient(1px 1px at 40px 120px,#fff 55%,transparent 60%),radial-gradient(1.8px 1.8px at 160px 70px,#BFD7FF 55%,transparent 60%),radial-gradient(1.1px 1.1px at 210px 180px,#fff 55%,transparent 60%);background-size:270px 270px;animation:tw 4.6s .8s ease-in-out infinite alternate}
 @keyframes tw{from{opacity:.35}to{opacity:.95}}
 .earth{position:absolute;bottom:-43vh;left:50%;width:130vmin;height:130vmin;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle at 34% 26%,#3E7CB1 0%,#2A5C8F 24%,#1B3A63 46%,#0D1E3D 66%,#060B18 100%);box-shadow:0 -30px 90px rgba(70,140,220,.35),inset 0 26px 70px rgba(140,200,255,.28),inset 0 -60px 120px rgba(0,0,0,.85)}
 .meteor{position:absolute;width:3px;height:3px;border-radius:50%;background:#FFE9C4;box-shadow:0 0 8px 2px rgba(255,190,110,.9);opacity:0;animation:fall 7s linear infinite}
@@ -351,6 +348,7 @@ function visibleToTech(r, m) { return specOK(r, m) && m.tech.status === 'active'
 var ui = { theme: (LS.getItem('tam_theme') === 'photo' ? 'photo' : 'light'), q: '', prefill: '', page: 'home', tab: 'news', authTab: 'in', photos: [], loc: null, chat: null, rate: null, complain: null, offer: null, offersView: null, nk: '' };
 var known = {};
 function toast(t, k) { var e = document.createElement('div'); e.className = 'toast ' + (k || ''); e.textContent = t; $('#toasts').appendChild(e); setTimeout(function () { e.remove(); }, 3800); }
+function setH(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
 function openModal(h) { var m = $('#modal'); m.innerHTML = h; m.hidden = false; }
 function closeModal() { var m = $('#modal'); m.hidden = true; m.innerHTML = ''; ui.chat = null; ui.rate = null; ui.complain = null; ui.offer = null; ui.offersView = null; }
 function notify(t) { toast(t); try { if (document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('تم', { body: t }); } catch (e) { } }
@@ -486,15 +484,15 @@ function refresh() {
     if (!m) return;
     var nk = db.news.text + '|' + db.news.color;
     if (ui.nk !== nk) { ui.nk = nk; paintTicker(); }
-    var nav = $('#nav'); if (nav) nav.innerHTML = navHTML(m);
+    var nav = $('#nav'); if (nav) setH(nav, navHTML(m));
     var d = $('#dyn');
     if (ui.page === 'home' && d) { if (!d.firstChild) { d.innerHTML = homeDyn(m); applyQ(); } }
-    else if (CATS[ui.page] && d) d.innerHTML = listFor(m, ui.page);
-    else if (ui.page === 'tech' && m.tech && d) d.innerHTML = techDash(m);
-    else if (ui.page === 'orders' && d) d.innerHTML = ordersHTML(m);
-    else if (ui.page === 'chats' && d) d.innerHTML = chatsHTML(m);
-    else if (ui.page === 'account' && d) { if (!(document.activeElement && document.activeElement.tagName === 'INPUT' && d.contains(document.activeElement))) d.innerHTML = accountHTML(m); }
-    else if (ui.page === 'admin' && ui.tab !== 'news' && $('#adm')) $('#adm').innerHTML = adminBody();
+    else if (CATS[ui.page] && d) setH(d, listFor(m, ui.page));
+    else if (ui.page === 'tech' && m.tech && d) setH(d, techDash(m));
+    else if (ui.page === 'orders' && d) setH(d, ordersHTML(m));
+    else if (ui.page === 'chats' && d) setH(d, chatsHTML(m));
+    else if (ui.page === 'account' && d) { if (!(document.activeElement && document.activeElement.tagName === 'INPUT' && d.contains(document.activeElement))) setH(d, accountHTML(m)); }
+    else if (ui.page === 'admin' && ui.tab !== 'news' && $('#adm')) setH($('#adm'), adminBody());
     if (ui.chat) fillMsgs(false);
     if (ui.offersView) fillOffers();
 }
@@ -707,7 +705,7 @@ function fillMsgs(force) {
     var h = '';
     if (!list.length) h = '<p class="empty">ابدأ المحادثة هنا.</p>';
     else list.forEach(function (x) { h += '<div class="b ' + (x.from === m.id ? 'me' : 'them') + '">' + esc(x.text) + '<time>' + hm(x.t) + '</time></div>'; });
-    box.innerHTML = h;
+    setH(box, h);
     if (force || atEnd) box.scrollTop = box.scrollHeight;
 }
 function openOffers(rid) {
@@ -721,7 +719,7 @@ function fillOffers() {
     var r = req(ui.offersView), box = $('#offersbody');
     if (!r || !box) return;
     if (r.status !== 'open') { closeModal(); refresh(); return; }
-    if (!r.offers.length) { box.innerHTML = '<p class="empty">لم تصل عروض بعد. بانتظار الفنيين المتصلين…</p>'; return; }
+    if (!r.offers.length) { setH(box, '<p class="empty">لم تصل عروض بعد. بانتظار الفنيين المتصلين…</p>'); return; }
     var list = r.offers.slice().sort(function (a, b) { return a.price - b.price; });
     var h = '<div class="offers">';
     list.forEach(function (o, i) {
@@ -735,7 +733,7 @@ function fillOffers() {
         h += '<button class="btn sm" data-act="accept" data-r="' + r.id + '" data-o="' + o.id + '">قبول العرض</button></div></div>';
     });
     h += '</div>';
-    box.innerHTML = h;
+    setH(box, h);
 }
 function notifyScan(silent) {
     var m = me();
