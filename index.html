@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#070A14">
+<meta name="color-scheme" content="only light">
 <title>تم — خدمات المنزل</title>
 <style>
 :root{--brown:#4A2C1D;--brown2:#6B4330;--amber:#D9A441;--bg:#EDEFEC;--card:#fff;--ink:#241A15;--mute:#7B6F68;--line:#E2DFDA;--green:#1E9E57;--red:#C62828;--r:14px}
@@ -213,8 +214,8 @@ h2 .ti{vertical-align:-8px}
 #space::after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(to bottom,rgba(4,7,16,.35) 0%,rgba(4,7,16,.62) 45%,rgba(4,7,16,.82) 100%)}
 
 /* ===== الواجهة الجديدة: ثيم أبيض + خلفية صورة اختيارية ===== */
-body{background:#EFEBE5}
-#space{background:#EFEBE5 center top/cover no-repeat}
+body{background:#F7F1E6}
+#space{background:#F7F1E6 center top/cover no-repeat}
 #space::after{display:none}
 body.photo #space::after{display:block;background:linear-gradient(to bottom,rgba(0,0,0,.08),rgba(0,0,0,.42))}
 .stick{background:rgba(255,255,255,.96)}
@@ -379,6 +380,14 @@ button.balbar{display:block;width:100%;text-align:right;padding:6px 2px;color:va
 .mkt img{width:54px;height:54px;border-radius:14px;margin-left:12px;flex:0 0 auto}
 .mkt span{flex:1}.mkt b{display:block;font-size:1.1rem}.mkt small{opacity:.85;font-size:.78rem}.mkt i{font-style:normal;font-size:1.6rem;opacity:.8}
 .due-n{display:block;font-size:1.7rem;color:var(--brown)}
+/* ===== الإصدار 11 ===== */
+:root{color-scheme:only light}
+.mapb{background:linear-gradient(135deg,#E7B84E,#C08A1E);color:#2A1A05;font-weight:700;border-radius:99px;padding:8px 18px;font-size:.95rem;box-shadow:0 3px 12px rgba(217,164,65,.45);letter-spacing:.2px}
+.sal{text-align:center;color:#8A6D3B;font-weight:600;font-size:.95rem;margin:2px 0 8px}
+body.night .sal{color:var(--brown2)}
+.admav{background:linear-gradient(135deg,#E7B84E,#8a5a12);color:#fff}
+.adm-badge{background:var(--amber);color:#241A15;border-radius:99px;padding:2px 10px;font-size:.68rem;font-weight:700}
+.leaflet-container{font-family:inherit;background:#DDE5DA}
 /* END */
 </style>
 </head>
@@ -483,7 +492,11 @@ function user(id) { return db.users.find(function (u) { return u.id === id; }); 
 function me() { return user(SS.getItem(SES)); }
 function req(id) { return db.requests.find(function (r) { return r.id === id; }); }
 function unread(r, m) { return db.messages.filter(function (x) { return x.reqId === r.id && x.t >= dayStart() && x.from !== m.id && x.read.indexOf(m.id) < 0; }).length; }
-function totalUnread(m) { return db.requests.filter(function (r) { return r.customerId === m.id || r.techId === m.id; }).reduce(function (s, r) { return s + unread(r, m); }, 0); }
+function totalUnread(m) {
+    var s = db.requests.filter(function (r) { return r.customerId === m.id || r.techId === m.id; }).reduce(function (a, r) { return a + unread(r, m); }, 0);
+    db.purchases.forEach(function (p) { if (m.role === 'admin' || p.userId === m.id) s += unreadC('p:' + p.id, m); });
+    return s;
+}
 function busy(m) { return db.requests.some(function (r) { return r.techId === m.id && r.status === 'accepted'; }); }
 function specOK(r, m) { return m.tech && m.tech.specs.indexOf(r.cat) > -1 && r.status === 'open' && r.customerId !== m.id; }
 function visibleToTech(r, m) { return specOK(r, m) && m.tech.status === 'active' && m.tech.online && !busy(m); }
@@ -531,7 +544,7 @@ function renderAuth() {
 function renderApp() {
     var m = me();
     if (m.agent && ui.mode === 'agent') ui.page = 'agent'; else if (ui.page === 'agent') ui.page = 'home';
-    var h = '<div class="stick"><div class="wrap bar"><div class="hl"><button class="logo-b" id="logo" aria-label="تم">تم</button><button class="dn" id="tg" data-act="theme" role="switch" aria-label="الوضع الليلي"><span class="dn-sky"></span><i class="dn-knob"></i></button>';
+    var h = '<div class="stick"><div class="wrap bar"><div class="hl"><button class="logo-b" id="logo" aria-label="تم">تم</button><button class="mapb" data-act="go" data-p="map" aria-label="خريطة بابل">خريطة</button>';
     if (m.agent) h += '<button class="mdb" data-act="mode">' + (ui.mode === 'agent' ? 'وضع المستخدم' : 'وضع الوكيل') + '</button>';
     h += '</div><div class="hr">' + (m.agent && ui.mode === 'agent' ? '' : '<button class="wl" data-act="go" data-p="wallet" aria-label="المحفظة">' + WALLET_SVG + '<b id="wlb">' + fmt(m.bal || 0) + '</b></button>') + '<button class="lo" data-act="logoutask" aria-label="تسجيل الخروج">' + LOGOUT_SVG + '</button></div></div>';
     h += '<div id="ticker"></div></div><main id="view" class="wrap"></main><nav id="nav" class="bbar"></nav>';
@@ -655,9 +668,9 @@ function setQty(v, from) {
     return v;
 }
 function aiRank() {
-    return db.users.filter(function (u) { return u.role !== 'admin' && db.requests.some(function (r) { return r.customerId === u.id && r.status === 'done'; }); }).map(function (u) {
+    return db.users.filter(function (u) { return u.role !== 'admin' && (db.requests.some(function (r) { return r.customerId === u.id && r.status === 'done'; }) || (u.cbAccrued || 0) > 0); }).map(function (u) {
         var mk = u.cbMark || 0, list = db.requests.filter(function (r) { return r.customerId === u.id && r.status === 'done' && (r.doneT || r.t) > mk; });
-        return { u: u, list: list, sum: list.reduce(function (s, r) { return s + (r.price || 0); }, 0) };
+        return { u: u, list: list, sum: list.reduce(function (s, r) { return s + (r.price || 0); }, 0) + (u.cbAccrued || 0) };
     }).sort(function (a, b) { return b.sum - a.sum || (a.u.name > b.u.name ? 1 : -1); });
 }
 function dialHTML() {
@@ -717,7 +730,7 @@ function itemExtra(x, mk) {
 function techDue(u, until) {
     var mk = (u.tech && u.tech.payMark) || 0, fee = db.cfg.fee == null ? 15 : db.cfg.fee, up = until || Infinity;
     var list = db.requests.filter(function (r) { var t = r.doneT || r.t; return r.techId === u.id && r.status === 'done' && t > mk && t <= up; });
-    var gross = list.reduce(function (s, r) { return s + (r.price || 0); }, 0);
+    var gross = list.reduce(function (s, r) { return s + (r.price || 0); }, 0) + ((u.tech && u.tech.accrued) || 0);
     return { n: list.length, gross: gross, due: Math.round(gross * fee / 100), fee: fee };
 }
 function dueCard(m) {
@@ -734,7 +747,7 @@ var BI = {
     agent: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
     shop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>'
 };
-var POP = [['water', 'تعبئة ماء آرو', 'اطلب دبّات الماء لباب بيتك'], ['stouta', 'نقل بالستوتة', 'نقل أغراض صغيرة بسرعة'], ['plumber', 'تغيير حنفية', 'تغيير وتركيب حنفية الماء'], ['electrician', 'تصليح تمديد كهرباء', 'فحص وإصلاح الأعطال'], ['painter', 'صبغ غرفة', 'طلاء جدران داخلية'], ['mover', 'نقل أثاث', 'نقل أثاث البيت بسيارة حمل'], ['cleaner', 'تنظيف شقة', 'تنظيف شامل للمنزل'], ['delivery', 'توصيل طرد', 'توصيل سريع داخل المدينة']];
+var POP = [['water', 'تعبئة ماء آرو', 'اطلب دبّات الماء لباب بيتك'], ['stouta', 'نقل بالستوتة', 'نقل أغراض صغيرة بسرعة'], ['plumber', 'تغيير حنفية', 'تغيير وتركيب حنفية الماء'], ['electrician', 'تصليح تمديد كهرباء', 'فحص وإصلاح الأعطال'], ['painter', 'صبغ غرفة', 'طلاء جدران داخلية'], ['mover', 'نقل أثاث', 'نقل أثاث البيت بسيارة حمل'], ['cleaner', 'عامل خدمة', ''], ['delivery', 'توصيل طرد', 'توصيل سريع داخل المدينة']];
 function applyTheme() { var p = ui.theme === 'night'; document.body.classList.toggle('night', p); var t = $('#tg'); if (t) t.setAttribute('aria-checked', p); }
 function dayStart() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
 function applyQ() { var q = (ui.q || '').trim(); document.querySelectorAll('[data-s]').forEach(function (e) { e.style.display = !q || e.dataset.s.indexOf(q) > -1 ? '' : 'none'; }); }
@@ -768,12 +781,23 @@ function chatsHTML(m) {
         var ms = db.messages.filter(function (x) { return x.reqId === r.id && x.t >= dayStart(); }).sort(function (a, b) { return b.t - a.t; });
         if (ms.length) rows.push({ r: r, last: ms[0] });
     });
+    db.purchases.forEach(function (p) {
+        if (m.role !== 'admin' && p.userId !== m.id) return;
+        var cid = 'p:' + p.id;
+        var ms = db.messages.filter(function (x) { return x.cid === cid && x.t >= dayStart(); }).sort(function (a, b) { return b.t - a.t; });
+        if (ms.length) rows.push({ cid: cid, p: p, last: ms[0] });
+    });
     rows.sort(function (a, b) { return b.last.t - a.last.t; });
     var h = '<h2 class="sec">محادثات اليوم</h2>';
     if (!rows.length) return h + '<p class="empty">لا توجد محادثات اليوم. تُحذف المحادثات تلقائياً كل يوم عند منتصف الليل.</p>';
     rows.forEach(function (x) {
-        var r = x.r, o = user(m.id === r.customerId ? r.techId : r.customerId) || { name: '—' }, u = unread(r, m);
-        h += '<button class="card chat-row" data-act="chat" data-r="' + r.id + '">' + av(o, 42) + '<span class="cm"><b>' + esc(o.name) + '</b><small>' + esc(x.last.text) + '</small></span><span class="ct"><time>' + hm(x.last.t) + '</time>' + (u ? '<i class="dot">' + u + '</i>' : '') + '</span></button>';
+        if (x.cid) {
+            var adm = m.role === 'admin', o = adm ? (user(x.p.userId) || { name: '—' }) : null, u2 = unreadC(x.cid, m);
+            h += '<button class="card chat-row" data-act="chat" data-r="' + x.cid + '">' + (adm ? av(o, 42) : '<span class="av admav" style="width:42px;height:42px;font-size:20px">🛡</span>') + '<span class="cm"><b>' + (adm ? esc(o.name) : 'إدارة تطبيق تم') + '</b>' + (adm ? ' <small class="mute">طلب سوق</small>' : ' <span class="adm-badge">رسمي</span>') + '<small>' + esc(x.last.text) + '</small></span><span class="ct"><time>' + hm(x.last.t) + '</time>' + (u2 ? '<i class="dot">' + u2 + '</i>' : '') + '</span></button>';
+            return;
+        }
+        var r = x.r, o2 = user(m.id === r.customerId ? r.techId : r.customerId) || { name: '—' }, u = unread(r, m);
+        h += '<button class="card chat-row" data-act="chat" data-r="' + r.id + '">' + av(o2, 42) + '<span class="cm"><b>' + esc(o2.name) + '</b><small>' + esc(x.last.text) + '</small></span><span class="ct"><time>' + hm(x.last.t) + '</time>' + (u ? '<i class="dot">' + u + '</i>' : '') + '</span></button>';
     });
     return h + '<p class="empty">تُحذف المحادثات تلقائياً كل يوم عند منتصف الليل</p>';
 }
@@ -783,17 +807,17 @@ function accountHTML(m) {
     h += '<form data-form="profile" class="form"><label>الاسم<input name="name" maxlength="30" required value="' + esc(m.name) + '"></label><label>نبذة قصيرة <small>اختياري</small><input name="bio" maxlength="80" value="' + esc(m.bio || '') + '"></label><button class="btn" type="submit">حفظ الملف الشخصي</button></form></section>';
     if (m.tech) h += dueCard(m);
     h += '<section class="card"><h2>تغيير كلمة المرور</h2><form data-form="pass" class="form"><label>كلمة المرور الحالية<input name="old" type="password" required></label><label>كلمة المرور الجديدة<input name="nw" type="password" required minlength="4"></label><button class="btn" type="submit">حفظ</button></form></section>';
-    h += '<section class="card"><p class="mute">السيرفر: ' + (CLOUD ? 'متصل ✓' : 'غير متصل (البيانات على هذا الجهاز فقط)' + (CLOUDERR ? ' — السبب: ' + CLOUDERR : '')) + '</p><div class="acts"><button class="btn ghost" data-act="theme">الوضع الليلي / النهاري</button><button class="btn ghost danger" data-act="logoutask">تسجيل الخروج</button></div></section>';
+    h += '<section class="card"><p class="mute">السيرفر: ' + (CLOUD ? 'متصل ✓' : 'غير متصل (البيانات على هذا الجهاز فقط)' + (CLOUDERR ? ' — السبب: ' + CLOUDERR : '')) + '</p><div class="row" style="margin-bottom:10px"><div><b>مظهر التطبيق</b><br><small class="mute">نهاري / ليلي — يتغيّر فقط من هنا ولا يتأثر بإعدادات الهاتف</small></div><button class="dn" id="tg" data-act="theme" role="switch" aria-label="الوضع الليلي"><span class="dn-sky"></span><i class="dn-knob"></i></button></div><div class="acts"><button class="btn ghost danger" data-act="logoutask">تسجيل الخروج</button></div></section>';
     return h;
 }
 function homeDyn(m) {
-    var h = '<div class="promo"><img src="' + PROMO + '" alt="اتمم طلبين واربح رصيد"></div><section class="hello"><h1>شنو تحتاج اليوم؟</h1><span class="locb">الحلة، بابل</span></section><input class="search" type="search" data-search placeholder="ابحث عن خدمة..." value="' + esc(ui.q || '') + '"><div class="tiles">';
+    var h = '<div class="promo"><img src="' + PROMO + '" alt="اتمم طلبين واربح رصيد"></div><p class="sal">اللهم صلّ على محمد وآل محمد</p><section class="hello"><h1>شنو تحتاج اليوم؟</h1><span class="locb">الحلة، بابل</span></section><input class="search" type="search" data-search placeholder="ابحث عن خدمة..." value="' + esc(ui.q || '') + '"><div class="tiles">';
     Object.keys(CATS).sort(function (a, b) { return (isLocked(a) ? 1 : 0) - (isLocked(b) ? 1 : 0) || (CAT_PRI[a] || 9) - (CAT_PRI[b] || 9); }).forEach(function (k) {
         var lk = isLocked(k);
         h += '<button class="tile' + (lk ? ' lockd' : '') + '" data-s="' + esc(CATS[k].n) + '" data-act="' + (lk ? 'soon' : 'go') + '" data-p="' + k + '"><span class="ic">' + ICONS[k] + '</span><b>' + CATS[k].n + '</b>' + (lk ? '<small class="soon">قريباً</small>' : '') + '</button>';
     });
     h += '</div><button class="mkt" data-s="السوق ببجي رصيد آسيا زين انترنت موبايل" data-act="go" data-p="shop"><img src="' + SIMG.phones + '" alt=""><span><b>السوق</b><small>شدات ببجي • رصيد آسيا وزين • إنترنت • موبايلات</small></span><i>‹</i></button><h2 class="sec">خدمات شائعة</h2><div class="pops">';
-    POP.filter(function (p) { return !isLocked(p[0]); }).forEach(function (p) { h += '<div class="pop" data-s="' + esc(p[1] + ' ' + CATS[p[0]].n) + '">' + ico(p[0], 30) + '<b>' + p[1] + '</b><small>' + p[2] + '</small><button class="btn sm" data-act="quick" data-c="' + p[0] + '" data-t="' + esc(p[1]) + '">اطلب الخدمة</button></div>'; });
+    POP.filter(function (p) { return !isLocked(p[0]); }).forEach(function (p) { h += '<div class="pop" data-s="' + esc(p[1] + ' ' + CATS[p[0]].n) + '">' + ico(p[0], 30) + '<b>' + p[1] + '</b><button class="btn sm" data-act="quick" data-c="' + p[0] + '" data-t="' + esc(p[1]) + '">اطلب الخدمة</button></div>'; });
     return h + '</div><section class="card info"><h2>خدمة واضحة، وسعر معروف</h2><p class="mute">اطلب خدمتك، وقارن عروض الفنيين، واختر السعر المناسب قبل أن يبدأ العمل.</p></section>';
 }
 function paintTicker() {
@@ -812,13 +836,17 @@ function go(p) {
     if (p === 'agent' && !m.agent) return;
     if (CATS[p] && isLocked(p)) return toast('هذا القسم سيتوفر قريباً', 'err');
     if (p === 'shop') ui.shop = null;
-    ui.page = p; ui.loc = null; ui.photos = [];
+    if (p !== 'map' && !ui._keep) { ui.loc = null; ui.photos = []; }
+    if (p !== 'map') { ui.mapPick = false; ui.mapReq = null; }
+    ui._keep = false;
+    if (window._map) { try { window._map.remove(); } catch (e) { } window._map = null; window._cm = null; window._tm = null; window._pk = null; window._mm = null; window._fit = null; }
+    ui.page = p;
     window.scrollTo(0, 0);
     renderPage();
 }
 function renderPage() {
     var m = me(), v = $('#view'), h = '';
-    if (ui.page === 'home' || ui.page === 'orders' || ui.page === 'chats' || ui.page === 'account' || ui.page === 'agent' || ui.page === 'wallet' || ui.page === 'shop') h = '<div id="dyn"></div>';
+    if (ui.page === 'home' || ui.page === 'orders' || ui.page === 'chats' || ui.page === 'account' || ui.page === 'agent' || ui.page === 'wallet' || ui.page === 'shop' || ui.page === 'map') h = '<div id="dyn"></div>';
     else if (CATS[ui.page]) h = svcShell(ui.page);
     else if (ui.page === 'tech') h = m.tech ? '<div id="dyn"></div>' : '';
     else if (ui.page === 'admin') h = m.role === 'admin' ? adminHTML() : '';
@@ -841,6 +869,7 @@ function refresh() {
     else if (ui.page === 'chats' && d) setH(d, chatsHTML(m));
     else if (ui.page === 'wallet' && d) setH(d, walletHTML(m));
     else if (ui.page === 'shop' && d) setH(d, shopHTML(m));
+    else if (ui.page === 'map' && d) { if (!d.firstChild) { setH(d, mapHTML(m)); setTimeout(initMap, 0); } else updateMapMarks(); }
     else if (ui.page === 'agent' && d) setH(d, agentHTML(m));
     else if (ui.page === 'account' && d) { if (!(document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type !== 'file' && d.contains(document.activeElement))) setH(d, accountHTML(m)); }
     else if (ui.page === 'admin' && ui.tab !== 'news' && $('#adm')) if (!(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && $('#adm').contains(document.activeElement))) setH($('#adm'), adminBody());
@@ -855,14 +884,14 @@ function svcShell(cat) {
         wh += '<label>عدد الدبّات المطلوب تعبئتها</label><div class="pbox"><button type="button" class="stp" data-act="qstep" data-s="-1" aria-label="تقليل">−</button><div class="pnum"><input id="qty" name="qty" type="number" inputmode="numeric" min="1" max="20" value="1" data-act-input="qty" aria-label="عدد الدبات"><span>دبة</span></div><button type="button" class="stp" data-act="qstep" data-s="1" aria-label="زيادة">+</button></div>';
         wh += '<div class="wtot">السعر ثابت: <b>' + fmt(up) + '</b> د.ع للدبة — الإجمالي <b id="wtot">' + fmt(up) + '</b> د.ع</div>';
         wh += '<label>رقم هاتف للتواصل <small>اختياري — يُستخدم بدل رقم حسابك</small><input name="phone" inputmode="tel" placeholder="07xxxxxxxxx"></label>';
-        wh += '<div class="loc"><button type="button" class="btn ghost sm" data-act="locate">تحديد موقعي الحالي</button><span id="locst" class="mute">لم يُحدد بعد</span></div>';
+        wh += '<div class="loc"><button type="button" class="btn ghost sm" data-act="locate">تحديد موقعي الحالي</button><button type="button" class="btn ghost sm" data-act="mappick">من الخريطة</button><span id="locst" class="mute">' + (ui.loc ? 'تم تحديد موقعك ✓' : 'لم يُحدد بعد') + '</span></div>';
         wh += '<label>وصف العنوان <small>الحي وأقرب نقطة دالة</small><input name="addr" maxlength="120" placeholder="مثال: الحلة، حي الجمعية، قرب المدرسة"></label>';
         return wh + '<button class="btn" type="submit">اطلب الآن</button></form></section><div id="dyn"></div>';
     }
     var h = '<button class="lnk back" data-act="go" data-p="home">→ رجوع للرئيسية</button><section class="card"><h2>' + ico(cat, 28) + 'طلب ' + c.n + '</h2><form data-form="req" data-cat="' + cat + '" class="form">';
     h += '<label>تفاصيل الطلب<textarea name="desc" rows="4" required placeholder="' + esc(c.ph) + '">' + esc(ui.prefill || '') + '</textarea></label>'; ui.prefill = '';
     h += '<label>رقم هاتف للتواصل <small>اختياري — يُستخدم بدل رقم حسابك</small><input name="phone" inputmode="tel" placeholder="07xxxxxxxxx"></label>';
-    h += '<div class="loc"><button type="button" class="btn ghost sm" data-act="locate">تحديد موقعي الحالي</button><span id="locst" class="mute">لم يُحدد بعد</span></div>';
+    h += '<div class="loc"><button type="button" class="btn ghost sm" data-act="locate">تحديد موقعي الحالي</button><button type="button" class="btn ghost sm" data-act="mappick">من الخريطة</button><span id="locst" class="mute">' + (ui.loc ? 'تم تحديد موقعك ✓' : 'لم يُحدد بعد') + '</span></div>';
     h += '<label>وصف العنوان <small>الحي وأقرب نقطة دالة</small><input name="addr" maxlength="120" placeholder="مثال: الحلة، حي الجمعية، قرب المدرسة"></label>';
     if (c.photos) h += '<label class="file">صور للطلب <small>حتى 3 صور</small><input type="file" accept="image/*" multiple data-photos></label><div id="thumbs" class="thumbs"></div>';
     h += '<button class="btn" type="submit">إرسال الطلب</button></form></section><div id="dyn"></div>';
@@ -877,7 +906,7 @@ function custCard(r, m) {
     var t = r.techId && user(r.techId), c = CATS[r.cat];
     var h = '<article class="card req"><div class="top"><span class="chip s-' + r.status + '">' + ST[r.status] + '</span><b>' + ico(r.cat, 20) + c.n + '</b><time>' + timeStr(r.t) + '</time></div>';
     h += '<p class="desc">' + esc(r.desc) + '</p>' + thumbs(r.photos);
-    h += '<p class="mute loc-l">' + esc(r.addr || 'الموقع محدد على الخريطة') + ' — <a href="' + mapLink(r) + '" target="_blank" rel="noopener">الخريطة</a></p>';
+    h += '<p class="mute loc-l">' + esc(r.addr || 'الموقع محدد على الخريطة') + ' — <button class="lnk" data-act="mapview" data-r="' + r.id + '">الخريطة</button></p>';
     if (r.status === 'open') {
         if (r.cat === 'water') h += '<p class="wait">بانتظار أول كابتن ماء آرو يقبل طلبك… الإجمالي ' + fmt(r.price) + ' د.ع</p><div class="acts">';
         else {
@@ -902,9 +931,9 @@ function jobCard(r, m) {
     var h = '<article class="card req"><div class="top"><span class="chip s-' + r.status + '">' + (r.status === 'accepted' ? 'مهمتك الحالية' : ST[r.status]) + '</span><b>' + ico(r.cat, 20) + c.n + '</b><time>' + timeStr(r.t) + '</time></div>';
     h += '<p class="desc">' + esc(r.desc) + '</p>' + thumbs(r.photos);
     h += '<div class="deal"><div>' + av(cu, 30) + '<b>' + esc(cu.name) + '</b><span class="stars">' + starsTxt(cu.rs || 0, cu.rc || 0) + '</span><br><a class="phone" href="tel:' + esc(phone) + '">' + esc(phone) + '</a></div><strong>' + fmt(r.price) + ' <small>د.ع</small></strong></div>';
-    h += '<p class="mute loc-l">' + esc(r.addr || '') + ' <a href="' + mapLink(r) + '" target="_blank" rel="noopener">فتح الموقع على الخريطة</a></p>';
+    h += '<p class="mute loc-l">' + esc(r.addr || '') + ' <button class="lnk" data-act="mapview" data-r="' + r.id + '">فتح الموقع على الخريطة</button></p>';
     h += '<div class="acts">' + chatBtn(r, m);
-    if (r.status === 'accepted') h += '<button class="btn" data-act="finish" data-r="' + r.id + '">تم التنفيذ</button><button class="btn ghost danger sm" data-act="techcancel" data-r="' + r.id + '">اعتذار عن المهمة</button>';
+    if (r.status === 'accepted') { h += '<button class="btn" data-act="finish" data-r="' + r.id + '">تم التنفيذ</button><button class="btn ghost danger sm" data-act="techcancel" data-r="' + r.id + '">اعتذار عن المهمة</button>'; h += '<button class="btn ghost sm" data-act="shareloc" data-r="' + r.id + '">' + (window._shW ? 'إيقاف مشاركة موقعي' : 'مشاركة موقعي المباشر') + '</button>'; }
     if (r.status === 'done_pending') h += '<span class="mute">بانتظار تأكيد الزبون</span>';
     if (r.status === 'done' && !r.rateC) h += '<button class="btn" data-act="ratecust" data-r="' + r.id + '">قيّم الزبون</button>';
     h += '<button class="lnk" data-act="complain" data-r="' + r.id + '" data-a="' + cu.id + '">تقديم شكوى</button></div></article>';
@@ -915,7 +944,7 @@ function openCard(r, m) {
     var lo = lowestOther(r, m.id);
     var h = '<article class="card req"><div class="top"><span class="chip s-open">' + c.n + '</span><time>' + timeStr(r.t) + '</time></div>';
     h += '<p class="desc">' + esc(r.desc) + '</p>' + thumbs(r.photos);
-    h += '<p class="mute loc-l">' + esc(r.addr || 'الموقع محدد على الخريطة') + ' — <a href="' + mapLink(r) + '" target="_blank" rel="noopener">الخريطة</a></p>';
+    h += '<p class="mute loc-l">' + esc(r.addr || 'الموقع محدد على الخريطة') + ' — <button class="lnk" data-act="mapview" data-r="' + r.id + '">الخريطة</button></p>';
     if (r.cat === 'water') return h + '<div class="deal"><div>' + r.qty + ' دبة</div><div class="o-side"><strong>' + fmt(r.price) + ' <small>د.ع</small></strong></div></div><div class="acts"><button class="btn" data-act="wclaim" data-r="' + r.id + '">قبول الطلب</button></div></article>';
     if (mine && lo != null && lo < mine.price) {
         h += '<div class="ai-tip"><b>مساعد الفني الذكي</b><p>وجد فني آخر قدّم عرضاً أرخص من عرضك: ' + fmt(lo) + ' د.ع. هل تريد تغيير سعرك؟</p>';
@@ -979,7 +1008,7 @@ function techDash(m) {
 /* ===== الإدارة ===== */
 function adminHTML() {
     var nc = db.complaints.filter(function (c) { return !c.resolved; }).length, np = db.purchases.filter(function (p) { return p.status === 'pending'; }).length;
-    var tabs = [['news', 'الأخبار'], ['complaints', 'الشكاوى'], ['techs', 'الفنيون'], ['agents', 'الوكلاء'], ['cats', 'الأقسام'], ['market', 'السوق'], ['ai', 'الذكاء'], ['dues', 'المستحقات']];
+    var tabs = [['news', 'الأخبار'], ['complaints', 'الشكاوى'], ['techs', 'الفنيون'], ['agents', 'الوكلاء'], ['cats', 'الأقسام'], ['market', 'طلبات السوق'], ['ai', 'الذكاء'], ['dues', 'المستحقات']];
     var h = '<div class="subtabs">';
     tabs.forEach(function (tb) {
         h += '<button class="stab' + (ui.tab === tb[0] ? ' on' : '') + '" data-act="atab" data-t="' + tb[0] + '">' + tb[1];
@@ -1032,7 +1061,7 @@ function adminBody() {
         var mk = ui.mk, mh = '';
         if (!mk) {
             var pend = db.purchases.filter(function (p) { return p.status === 'pending'; }).sort(function (a, b) { return a.t - b.t; });
-            if (pend.length) mh += '<h2 class="sec">طلبات شراء بانتظار التنفيذ (' + pend.length + ')</h2>' + pend.map(function (p) { var u = user(p.userId) || { name: '—', phone: '' }, sh = SHOPS[p.cat] || { n: '', l: '' }; return '<article class="card"><div class="row"><div><b>' + esc(p.name) + '</b><br><small>' + esc(sh.n) + ' — ' + fmtK(p.price) + ' د.ع</small></div><span class="chip s-open">' + timeStr(p.t) + '</span></div><p class="mute">' + esc(u.name) + ' — <span class="phone">' + esc(u.phone) + '</span><br>' + esc(sh.l) + ': <b>' + esc(p.target) + '</b></p><div class="acts"><button class="btn sm" data-act="pdone" data-p="' + p.id + '">تم التنفيذ</button><button class="btn ghost danger sm" data-act="prefund" data-p="' + p.id + '">رفض واسترداد</button></div></article>'; }).join('');
+            if (pend.length) mh += '<h2 class="sec">طلبات شراء بانتظار التنفيذ (' + pend.length + ')</h2>' + pend.map(function (p) { var u = user(p.userId) || { name: '—', phone: '' }, sh = SHOPS[p.cat] || { n: '', l: '' }; return '<article class="card"><div class="row"><div><b>' + esc(p.name) + '</b><br><small>' + esc(sh.n) + ' — ' + fmtK(p.price) + ' د.ع</small></div><span class="chip s-open">' + timeStr(p.t) + '</span></div><p class="mute">' + esc(u.name) + ' — <span class="phone">' + esc(p.phone || u.phone) + '</span><br>' + esc(sh.l) + ': <b>' + esc(p.target) + '</b></p><div class="acts"><button class="btn sm green" data-act="pchat" data-p="' + p.id + '">مراسلة</button><button class="btn sm" data-act="pdone" data-p="' + p.id + '">تم — اكتمل التسليم</button><button class="btn ghost danger sm" data-act="prefund" data-p="' + p.id + '">رفض واسترداد</button></div></article>'; }).join('');
             mh += '<h2 class="sec">أقسام السوق</h2><div class="tiles shopt">';
             Object.keys(SHOPS).forEach(function (c) { mh += '<button class="tile" data-act="mkcat" data-c="' + c + '">' + shopIcon(c) + '<b>' + SHOPS[c].n + '</b></button>'; });
             return mh + '</div>';
@@ -1086,7 +1115,29 @@ function adminBody() {
 
 /* ===== الدردشة والعروض ===== */
 function openChat(rid) {
-    var r = req(rid), m = me();
+    var m = me();
+    if (!m) return;
+    if (String(rid).indexOf('p:') === 0) {
+        var p = db.purchases.find(function (x) { return 'p:' + x.id === rid; });
+        if (!p) return toast('انتهى هذا الطلب وحُذفت محادثته', 'err');
+        var isAdm = m.role === 'admin';
+        var peer = isAdm ? user(p.userId) : user('u_admin');
+        if (!peer) return;
+        ui.chat = rid;
+        var hh = '<div class="sheet chat"><div class="sh-h">' + (isAdm ? av(peer, 32) + '<b>' + esc(peer.name) + '</b><span class="mute">' + esc(p.name) + '</span>' : '<span class="av admav" style="width:32px;height:32px;font-size:16px">🛡</span><b>إدارة تطبيق تم</b><span class="adm-badge">رسمي</span>') + '<button class="x" data-act="closemodal" aria-label="إغلاق">×</button></div>';
+        hh += '<p class="safe">' + (isAdm ? 'محادثة رسمية مع العميل بخصوص طلبه من السوق.' : 'هذه المحادثة مع إدارة التطبيق بخصوص طلبك «' + esc(p.name) + '».') + '</p>';
+        hh += '<div id="msgs" class="msgs"></div>';
+        hh += '<form data-form="msg" class="msgf"><input name="t" autocomplete="off" maxlength="400" required placeholder="اكتب رسالة…"><button class="btn" type="submit">إرسال</button></form></div>';
+        openModal(hh);
+        if (isAdm && !db.messages.some(function (x) { return x.cid === rid; })) {
+            db.messages.push({ id: uid('m'), cid: rid, from: m.id, text: 'مرحباً ' + peer.name + '، معك إدارة تطبيق تم بخصوص طلبك «' + p.name + '». سنراسلك هنا لإتمام الاستلام.', t: Date.now(), read: [m.id] });
+            save();
+        }
+        fillMsgs(true);
+        refresh();
+        return;
+    }
+    var r = req(rid);
     if (!r) return;
     var other = user(m.id === r.customerId ? r.techId : r.customerId);
     if (!other) return;
@@ -1100,9 +1151,10 @@ function openChat(rid) {
     refresh();
 }
 function fillMsgs(force) {
-    var r = req(ui.chat), m = me(), box = $('#msgs');
-    if (!r || !box) return;
-    var list = db.messages.filter(function (x) { return x.reqId === r.id && x.t >= dayStart(); }).sort(function (a, b) { return a.t - b.t; });
+    var m = me(), box = $('#msgs'), id = ui.chat;
+    if (!m || !box || !id) return;
+    var isC = String(id).indexOf('p:') === 0;
+    var list = db.messages.filter(function (x) { return (isC ? x.cid === id : x.reqId === id) && x.t >= dayStart(); }).sort(function (a, b) { return a.t - b.t; });
     var ch = false;
     list.forEach(function (x) { if (x.from !== m.id && x.read.indexOf(m.id) < 0) { x.read.push(m.id); ch = true; } });
     if (ch) save();
@@ -1148,6 +1200,11 @@ function notifyScan(silent) {
         if (!known[k]) { known[k] = 1; if (!silent && show) notify(t); }
     }
     db.messages.forEach(function (x) {
+        if (x.cid) {
+            var p2 = db.purchases.find(function (q) { return 'p:' + q.id === x.cid; });
+            if (p2 && x.from !== m.id && (m.role === 'admin' || p2.userId === m.id)) add('m' + x.id, x.from === 'u_admin' ? 'رسالة من إدارة التطبيق' : 'رسالة بخصوص طلب من السوق', ui.chat !== x.cid);
+            return;
+        }
         var r = req(x.reqId);
         if (r && x.from !== m.id && (r.customerId === m.id || r.techId === m.id)) add('m' + x.id, 'رسالة جديدة من ' + ((user(x.from) || {}).name || ''), ui.chat !== r.id);
     });
@@ -1170,9 +1227,154 @@ function notifyScan(silent) {
     }
 }
 
+/* ===== الحذف التلقائي (٢٤ ساعة) — يحذف فعلاً من السيرفر عبر save/push ===== */
+function delPurchase(pid) {
+    db.purchases = db.purchases.filter(function (x) { return x.id !== pid; });
+    db.messages = db.messages.filter(function (x) { return x.cid !== 'p:' + pid; });
+    if (ui.chat === 'p:' + pid) closeModal();
+    save();
+}
+function unreadC(cid, m) { return db.messages.filter(function (x) { return x.cid === cid && x.t >= dayStart() && x.from !== m.id && x.read.indexOf(m.id) < 0; }).length; }
+function purge() {
+    if (typeof db === 'undefined' || !db) return;
+    var now = Date.now(), ds = dayStart(), cut = now - 864e5, ch = false;
+    /* الرسائل: كل ما قبل بداية اليوم يُحذف نهائياً */
+    var nm = db.messages.filter(function (x) { return x.t >= ds; });
+    if (nm.length !== db.messages.length) { db.messages = nm; ch = true; }
+    /* الطلبات المكتملة/الملغاة الأقدم من 24 ساعة: ترحيل مبالغها المحاسبية ثم حذفها مع صورها وعروضها ومحادثاتها */
+    var rem = [];
+    db.requests = db.requests.filter(function (r) { if ((r.status === 'done' || r.status === 'cancelled') && (r.doneT || r.t) < cut) { rem.push(r); return false; } return true; });
+    if (rem.length) {
+        rem.forEach(function (r) {
+            db.messages = db.messages.filter(function (x) { return x.reqId !== r.id; });
+            var cu = user(r.customerId);
+            if (cu) {
+                cu.hist = [{ t: r.doneT || r.t, cat: r.cat, price: r.price || 0, st: r.status }].concat(cu.hist || []).slice(0, 40);
+                if (r.status === 'done' && (r.price > 0) && (r.doneT || r.t) > (cu.cbMark || 0)) cu.cbAccrued = (cu.cbAccrued || 0) + r.price;
+            }
+            var tu = r.techId && user(r.techId);
+            if (tu && tu.tech && r.status === 'done' && (r.doneT || r.t) > (tu.tech.payMark || 0)) tu.tech.accrued = (tu.tech.accrued || 0) + (r.price || 0);
+        });
+        ch = true;
+    }
+    /* الشكاوى المحلولة الأقدم من 24 ساعة تُحذف */
+    var nc = db.complaints.filter(function (c) { return !(c.resolved && c.t < cut); });
+    if (nc.length !== db.complaints.length) { db.complaints = nc; ch = true; }
+    /* طلبات السوق المنفذة/المستردة الأقدم من 24 ساعة تُحذف مع محادثاتها */
+    var np = db.purchases.filter(function (p) { if ((p.status === 'done' || p.status === 'refunded') && p.t < cut) { db.messages = db.messages.filter(function (x) { return x.cid !== 'p:' + p.id; }); return false; } return true; });
+    if (np.length !== db.purchases.length) { db.purchases = np; ch = true; }
+    if (ch) save();
+}
+
+/* ===== خريطة بابل داخل التطبيق (مجانية، بدون مفاتيح) ===== */
+function mapHTML(m) {
+    var r = ui.mapReq && req(ui.mapReq);
+    var h = '<button class="lnk back" data-act="mapback">→ رجوع</button><h2 class="sec">خريطة بابل</h2>';
+    h += '<div class="card" style="padding:6px"><div id="mapbox" style="height:60vh;border-radius:10px;overflow:hidden"></div></div>';
+    h += '<div class="acts"><button class="btn" data-act="mapme">تحديد موقعي بدقة عالية</button>';
+    if (ui.mapPick) h += '<button class="btn green" data-act="mapok">تأكيد هذا الموقع للطلب</button>';
+    h += '</div><p class="mute" id="mapinfo">' + (r ? 'يظهر موقع الزبون بالأحمر وموقع الكابتن/الفني بالأزرق، ويتحدّث تلقائياً عند مشاركة الفني لموقعه.' : (ui.mapPick ? 'اضغط على الخريطة لاختيار موقع الطلب، أو استخدم زر تحديد موقعك.' : 'الخريطة مخصصة لمحافظة بابل.')) + '</p>';
+    return h;
+}
+function loadLeaflet(cb) {
+    if (window.L) return cb();
+    if (loadLeaflet.q) { loadLeaflet.q.push(cb); return; }
+    loadLeaflet.q = [cb];
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(l);
+    var sc = document.createElement('script'); sc.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    sc.onload = function () { var q = loadLeaflet.q; loadLeaflet.q = null; q.forEach(function (f) { f(); }); };
+    sc.onerror = function () { loadLeaflet.q = null; var i = $('#mapinfo'); if (i) i.textContent = 'تعذّر تحميل الخريطة — تحقق من الاتصال بالإنترنت'; };
+    document.head.appendChild(sc);
+}
+function initMap() {
+    var box = $('#mapbox');
+    if (!box || window._map) return;
+    loadLeaflet(function () {
+        var bx = $('#mapbox');
+        if (!bx || window._map) return;
+        var map = L.map(bx, { maxBounds: [[31.8, 43.7], [33.4, 45.5]], maxBoundsViscosity: .6 }).setView([32.47, 44.42], 12);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+        window._map = map;
+        map.on('click', function (e) {
+            if (!ui.mapPick) return;
+            ui.loc = { lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6) };
+            setPickMark();
+            var i = $('#mapinfo'); if (i) i.textContent = 'تم اختيار الموقع — اضغط «تأكيد هذا الموقع» لاعتماده للطلب';
+        });
+        updateMapMarks();
+        if (ui.mapPick && ui.loc) setPickMark();
+    });
+}
+function setPickMark() {
+    var map = window._map;
+    if (!map || !window.L || !ui.loc) return;
+    if (window._pk) window._pk.setLatLng([ui.loc.lat, ui.loc.lng]);
+    else window._pk = L.marker([ui.loc.lat, ui.loc.lng]).addTo(map);
+    map.setView([ui.loc.lat, ui.loc.lng], Math.max(map.getZoom(), 15));
+}
+function updateMapMarks() {
+    var map = window._map;
+    if (!map || !window.L) return;
+    var r = ui.mapReq && req(ui.mapReq);
+    if (!r) return;
+    var pts = [];
+    if (r.loc) {
+        var cp = [r.loc.lat, r.loc.lng]; pts.push(cp);
+        if (!window._cm) window._cm = L.marker(cp).addTo(map).bindPopup('موقع الزبون'); else window._cm.setLatLng(cp);
+    }
+    if (r.techLoc) {
+        var tp = [r.techLoc.lat, r.techLoc.lng]; pts.push(tp);
+        if (!window._tm) window._tm = L.marker(tp).addTo(map).bindPopup('الكابتن / الفني'); else window._tm.setLatLng(tp);
+    }
+    if (pts.length > 1 && !window._fit) { map.fitBounds(pts, { padding: [40, 40] }); window._fit = 1; }
+    else if (pts.length === 1 && !window._fit) { map.setView(pts[0], 15); window._fit = 1; }
+}
+
 /* ===== الأحداث ===== */
 var act = {
     go: function (d) { go(d.p); },
+    mapview: function (d) { ui.mapReq = d.r; ui.mapPick = false; go('map'); },
+    mappick: function () { ui._locBackup = ui.loc; ui.pickReturn = ui.page; ui.mapPick = true; ui.mapReq = null; ui._keep = true; go('map'); },
+    mapok: function () { if (!ui.loc) return toast('اختر نقطة على الخريطة أو حدد موقعك أولاً', 'err'); ui.mapPick = false; ui._keep = true; go(ui.pickReturn || 'home'); toast('تم اعتماد الموقع من الخريطة ✓'); },
+    mapback: function () { if (ui.mapPick) { ui.loc = ui._locBackup || null; ui.mapPick = false; ui._keep = true; go(ui.pickReturn || 'home'); } else go('home'); },
+    mapme: function () {
+        var info = $('#mapinfo');
+        if (!navigator.geolocation) { if (info) info.textContent = 'الجهاز لا يدعم تحديد الموقع'; return; }
+        if (info) info.textContent = 'جارٍ تحديد موقعك بأعلى دقة…';
+        var best = null, done = false, wid = null;
+        function fin() {
+            if (done) return; done = true;
+            if (wid != null) navigator.geolocation.clearWatch(wid);
+            if (!best) { if (info) info.textContent = 'تعذّر تحديد الموقع — فعّل GPS وامنح الإذن للتطبيق'; return; }
+            var la = +best.coords.latitude.toFixed(6), ln = +best.coords.longitude.toFixed(6);
+            if (window._map && window.L) {
+                if (window._mm) window._mm.setLatLng([la, ln]); else window._mm = L.marker([la, ln]).addTo(window._map).bindPopup('موقعك');
+                window._map.setView([la, ln], 17);
+            }
+            if (ui.mapPick) { ui.loc = { lat: la, lng: ln }; setPickMark(); }
+            if (info) info.textContent = 'موقعك الحالي — دقة ' + Math.round(best.coords.accuracy) + ' متر' + (ui.mapPick ? ' — اضغط تأكيد لاعتماده للطلب' : '');
+        }
+        wid = navigator.geolocation.watchPosition(function (p) { if (!best || p.coords.accuracy < best.coords.accuracy) best = p; if (p.coords.accuracy <= 20) fin(); }, function () { fin(); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        setTimeout(fin, 12000);
+    },
+    shareloc: function (d) {
+        var r = req(d.r);
+        if (!r) return;
+        if (window._shW) { navigator.geolocation.clearWatch(window._shW); window._shW = null; toast('توقفت مشاركة موقعك'); refresh(); return; }
+        if (!navigator.geolocation) return toast('الجهاز لا يدعم GPS', 'err');
+        var last = 0;
+        window._shW = navigator.geolocation.watchPosition(function (p) {
+            var now = Date.now();
+            if (now - last < 8000) return;
+            last = now;
+            var rr = req(d.r);
+            if (!rr || rr.status !== 'accepted') { if (window._shW) { navigator.geolocation.clearWatch(window._shW); window._shW = null; } return; }
+            rr.techLoc = { lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6), t: now };
+            save();
+        }, function () { toast('تعذّرت مشاركة الموقع', 'err'); }, { enableHighAccuracy: true, maximumAge: 5000 });
+        toast('بدأت مشاركة موقعك المباشر مع الزبون'); refresh();
+    },
+    pchat: function (d) { openChat('p:' + d.p); },
     duepaid: function (d) {
         var u = user(d.u);
         if (!u || !u.tech) return;
@@ -1181,7 +1383,7 @@ var act = {
         ask('تأكيد استلام ' + fmt(x.due) + ' د.ع من ' + u.name + ' وتصفير حسابه؟', function () {
             u = user(d.u); if (!u || !u.tech) return;
             var y = techDue(u, at);
-            u.tech.payMark = at; u.tech.lastPaid = Date.now(); u.tech.paidTotal = (u.tech.paidTotal || 0) + y.due;
+            u.tech.payMark = at; u.tech.accrued = 0; u.tech.lastPaid = Date.now(); u.tech.paidTotal = (u.tech.paidTotal || 0) + y.due;
             save(); toast('تم تسجيل استلام المبلغ'); refresh();
         }, 'تم، استلمنا');
     },
@@ -1202,27 +1404,36 @@ var act = {
         if (!it) return;
         if ((m.bal || 0) < it.p) return toast('رصيدك غير كافٍ لهذه الباقة', 'err');
         ui.buy = { c: d.c, i: it.id };
-        openModal('<div class="sheet"><div class="sh-h"><b>' + esc(it.n) + ' — ' + fmtK(it.p) + ' د.ع</b><button class="x" data-act="closemodal" aria-label="إغلاق">×</button></div>' + (okImg(it.img) ? '<img class="pimg wide" src="' + it.img + '" alt="">' : '') + (it.d ? '<p class="mute">' + esc(it.d) + '</p>' : '') + '<form data-form="buy" class="form"><label>' + esc(SHOPS[d.c].l) + '<input name="target" required maxlength="' + (SHOPS[d.c].num === false ? 120 : 30) + '" inputmode="' + (SHOPS[d.c].num === false ? 'text' : 'numeric') + '"></label><p class="mute">يُخصم المبلغ من رصيدك وتُنفَّذ العملية من الإدارة.</p><button class="btn" type="submit">تأكيد الشراء</button></form></div>');
+        openModal('<div class="sheet"><div class="sh-h"><b>' + esc(it.n) + ' — ' + fmtK(it.p) + ' د.ع</b><button class="x" data-act="closemodal" aria-label="إغلاق">×</button></div>' + (okImg(it.img) ? '<img class="pimg wide" src="' + it.img + '" alt="">' : '') + (it.d ? '<p class="mute">' + esc(it.d) + '</p>' : '') + '<form data-form="buy" class="form"><label>' + esc(SHOPS[d.c].l) + '<input name="target" required maxlength="' + (SHOPS[d.c].num === false ? 120 : 30) + '" inputmode="' + (SHOPS[d.c].num === false ? 'text' : 'numeric') + '"></label><label>رقم هاتفك <small>لمراسلتك واستلام طلبك</small><input name="phone" inputmode="tel" required maxlength="14" placeholder="07xxxxxxxxx" value="' + esc(m.phone) + '"></label><p class="mute">يُخصم المبلغ من رصيدك وتراسلك الإدارة داخل التطبيق.</p><button class="btn" type="submit">تأكيد الشراء</button></form></div>');
     },
     mkcat: function (d) { ui.mk = d.c; renderPage(); },
     mkback: function () { ui.mk = null; renderPage(); },
     delitem: function (d) { ask('حذف هذه الباقة؟', function () { db.shop[d.c] = (db.shop[d.c] || []).filter(function (x) { return x.id !== d.i; }); save(); refresh(); }, 'حذف'); },
-    pdone: function (d) { var p = db.purchases.find(function (x) { return x.id === d.p; }); if (p && p.status === 'pending') { p.status = 'done'; save(); toast('تم تنفيذ الطلب'); refresh(); } },
+    pdone: function (d) {
+        var p = db.purchases.find(function (x) { return x.id === d.p; });
+        if (!p || p.status !== 'pending') return;
+        ask('تأكيد اكتمال طلب «' + p.name + '» وتسليمه للعميل؟ سيُحذف الطلب وكل محادثاته نهائياً من السيرفر.', function () {
+            p = db.purchases.find(function (x) { return x.id === d.p; });
+            if (!p) return;
+            delPurchase(p.id);
+            toast('تم — حُذف الطلب ومحادثاته من السيرفر'); refresh();
+        }, 'تم، احذف الطلب');
+    },
     prefund: function (d) {
-        ask('رفض الطلب وإرجاع المبلغ إلى محفظة الزبون؟', function () {
+        ask('رفض الطلب وإرجاع المبلغ إلى محفظة الزبون؟ سيُحذف الطلب ومحادثاته من السيرفر.', function () {
             var p = db.purchases.find(function (x) { return x.id === d.p; });
             if (!p || p.status !== 'pending') return;
-            p.status = 'refunded';
             var u = user(p.userId);
             if (u) { u.bal = (u.bal || 0) + p.price; u.wlog = [{ t: Date.now(), amt: p.price, who: 'استرداد: ' + p.name }].concat(u.wlog || []).slice(0, 30); }
-            save(); toast('تم الاسترداد'); refresh();
+            delPurchase(p.id);
+            toast('تم الاسترداد وحُذف الطلب'); refresh();
         }, 'رفض واسترداد');
     },
     dstep: function (d) { setDial((ui.dial || 0) + (+d.s)); },
     dialok: function () {
         var u = user(ui.dialU), v = ui.dial;
         if (!u || !(v > 0)) return;
-        u.bal = (u.bal || 0) + v; u.cbTotal = (u.cbTotal || 0) + v; u.cbMark = ui.dialAt || Date.now();
+        u.bal = (u.bal || 0) + v; u.cbTotal = (u.cbTotal || 0) + v; u.cbMark = ui.dialAt || Date.now(); u.cbAccrued = 0;
         u.wlog = [{ t: Date.now(), amt: v, who: 'استرداد نقدي (كاش باك)' }].concat(u.wlog || []).slice(0, 30);
         if (save()) { closeModal(); toast('أُضيف ' + fmt(v) + ' د.ع إلى محفظة ' + u.name); refresh(); }
     },
@@ -1234,6 +1445,7 @@ var act = {
         var h = '<div class="sheet"><div class="sh-h">' + av(x.u, 36) + '<b>' + esc(x.u.name) + '</b><button class="x" data-act="closemodal" aria-label="إغلاق">×</button></div>';
         h += '<div class="ai-tot"><small>إجمالي ما صرفه منذ آخر تسوية</small><b>' + fmt(x.sum) + ' <small>د.ع</small></b><small>' + x.list.length + ' طلب مكتمل</small></div>';
         Object.keys(by).forEach(function (k) { var l = by[k]; h += '<div class="ai-cat"><div class="row"><span>' + ico(k, 22) + '<b>' + (CATS[k] ? CATS[k].n : esc(k)) + '</b> — ' + l.length + ' طلب</span><b>' + fmt(l.reduce(function (s, r) { return s + (r.price || 0); }, 0)) + '</b></div><div class="ai-chips">' + l.map(function (r) { return '<span class="chip">' + fmt(r.price) + '</span>'; }).join('') + '</div></div>'; });
+        if (x.u.cbAccrued > 0) h += '<p class="mute">+ مبالغ مرحّلة من طلبات سابقة محفوظة: <b>' + fmt(x.u.cbAccrued) + '</b> د.ع</p>';
         if (!x.list.length) h += '<p class="empty">لا توجد طلبات جديدة بعد آخر تسوية.</p>';
         ui.dial = 0; ui.dialU = x.u.id; ui.dialAt = Date.now();
         h += '<h2 class="sec">الاسترداد النقدي</h2>' + dialHTML() + '<div class="acts dial-a"><button class="btn ghost" data-act="dstep" data-s="-50">− 50</button><button class="btn ghost" data-act="dstep" data-s="50">+ 50</button></div><button class="btn" id="dok" data-act="dialok" disabled style="width:100%;margin-top:8px">تم</button></div>';
@@ -1263,8 +1475,16 @@ var act = {
     locate: function () {
         var st = $('#locst');
         if (!navigator.geolocation) { st.textContent = 'الجهاز لا يدعم تحديد الموقع'; return; }
-        st.textContent = 'جارٍ التحديد…';
-        navigator.geolocation.getCurrentPosition(function (p) { ui.loc = { lat: +p.coords.latitude.toFixed(5), lng: +p.coords.longitude.toFixed(5) }; st.textContent = 'تم تحديد موقعك ✓'; }, function () { st.textContent = 'تعذّر التحديد، اكتب العنوان بدلاً من ذلك'; }, { enableHighAccuracy: true, timeout: 12000 });
+        st.textContent = 'جارٍ التحديد بأعلى دقة…';
+        var best = null, done = false, wid = null;
+        function fin() {
+            if (done) return; done = true;
+            if (wid != null) navigator.geolocation.clearWatch(wid);
+            if (best) { ui.loc = { lat: +best.coords.latitude.toFixed(6), lng: +best.coords.longitude.toFixed(6) }; st.textContent = 'تم تحديد موقعك ✓ (دقة ' + Math.round(best.coords.accuracy) + 'م)'; }
+            else st.textContent = 'تعذّر التحديد، اكتب العنوان بدلاً من ذلك';
+        }
+        wid = navigator.geolocation.watchPosition(function (p) { if (!best || p.coords.accuracy < best.coords.accuracy) best = p; if (p.coords.accuracy <= 20) fin(); }, function () { fin(); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        setTimeout(fin, 12000);
     },
     zoomimg: function (d, e) { openModal('<div class="sheet"><div class="sh-h"><button class="x" data-act="closemodal" aria-label="إغلاق">×</button></div><img class="big" src="' + e.target.src + '" alt=""></div>'); },
     closemodal: function () { closeModal(); refresh(); },
@@ -1342,7 +1562,14 @@ var act = {
     withdraw: function (d) { var r = req(d.r), m = me(); if (!r) return; r.offers = r.offers.filter(function (o) { return o.techId !== m.id; }); save(); refresh(); },
     atab: function (d) { ui.tab = d.t; ui.mk = null; renderPage(); },
     swatch: function (d) { var c = $('[name=color]'); if (c) c.value = d.c; },
-    resolve: function (d) { var c = db.complaints.find(function (x) { return x.id === d.c; }); if (c) { c.resolved = true; save(); refresh(); } },
+    resolve: function (d) {
+        var c = db.complaints.find(function (x) { return x.id === d.c; });
+        if (!c) return;
+        ask('تمت معالجة الشكوى؟ ستُحذف نهائياً من السيرفر.', function () {
+            db.complaints = db.complaints.filter(function (x) { return x.id !== d.c; });
+            save(); toast('تمت المعالجة وحُذفت الشكوى من السيرفر'); refresh();
+        }, 'تم، احذف الشكوى');
+    },
     delc: function (d) { ask('حذف الشكوى؟', function () { db.complaints = db.complaints.filter(function (x) { return x.id !== d.c; }); save(); refresh(); }, 'حذف'); },
     suspend: function (d) {
         var u = user(d.u);
@@ -1408,10 +1635,12 @@ var forms = {
         var m = me(), b = ui.buy, it = b && (db.shop[b.c] || []).find(function (x) { return x.id === b.i; }), t = (b && SHOPS[b.c] && SHOPS[b.c].num === false) ? f.target.value.trim() : normPhone(f.target.value.trim());
         if (!it) { closeModal(); return; }
         if (t.length < SHOPS[b.c].v) return toast('أدخل ' + SHOPS[b.c].l + ' بشكل صحيح', 'err');
+        var ph = normPhone(f.phone ? f.phone.value : '');
+        if (ph.length < 8) return toast('اكتب رقم هاتفك الصحيح لمراسلتك واستلام طلبك', 'err');
         if ((m.bal || 0) < it.p) return toast('رصيدك غير كافٍ', 'err');
         m.bal -= it.p; m.wlog = [{ t: Date.now(), amt: -it.p, who: 'شراء ' + it.n }].concat(m.wlog || []).slice(0, 30);
-        db.purchases.push({ id: uid('p'), userId: m.id, cat: b.c, name: it.n, price: it.p, target: t, t: Date.now(), status: 'pending' });
-        if (save()) { closeModal(); toast('تم إرسال طلب الشراء. ستُنفَّذ العملية قريباً'); refresh(); }
+        db.purchases.push({ id: uid('p'), userId: m.id, cat: b.c, name: it.n, price: it.p, target: t, phone: ph, t: Date.now(), status: 'pending' });
+        if (save()) { closeModal(); toast('تم إرسال طلب الشراء. ستراسلك الإدارة داخل التطبيق'); refresh(); }
     },
     profile: function (f) { var m = me(), n = f.name.value.trim(); if (n.length < 2) return toast('الاسم قصير', 'err'); m.name = n; m.bio = f.bio.value.trim(); if (save()) { toast('تم حفظ ملفك الشخصي'); refresh(); } },
     newagent: function (f) {
@@ -1494,11 +1723,20 @@ var forms = {
         }
     },
     msg: function (f) {
-        var r = req(ui.chat), m = me(), t = f.t.value.trim();
-        if (!r || !t) return;
-        if (blocked(t)) return toast('للحماية: يُمنع تبادل أرقام الهواتف أو حسابات التواصل خارج التطبيق', 'err');
-        if (['accepted', 'done_pending', 'done'].indexOf(r.status) < 0) return toast('الدردشة مغلقة لهذا الطلب', 'err');
-        db.messages.push({ id: uid('m'), reqId: r.id, from: m.id, text: t, t: Date.now(), read: [m.id] });
+        var m = me(), id = ui.chat, t = f.t.value.trim();
+        if (!m || !id || !t) return;
+        var isC = String(id).indexOf('p:') === 0;
+        if (m.role !== 'admin' && blocked(t)) return toast('للحماية: يُمنع تبادل أرقام الهواتف أو حسابات التواصل خارج التطبيق', 'err');
+        if (isC) {
+            var p = db.purchases.find(function (x) { return 'p:' + x.id === id; });
+            if (!p) { closeModal(); return toast('انتهى هذا الطلب وحُذفت محادثته', 'err'); }
+            db.messages.push({ id: uid('m'), cid: id, from: m.id, text: t, t: Date.now(), read: [m.id] });
+        } else {
+            var r = req(id);
+            if (!r) return;
+            if (['accepted', 'done_pending', 'done'].indexOf(r.status) < 0) return toast('الدردشة مغلقة لهذا الطلب', 'err');
+            db.messages.push({ id: uid('m'), reqId: r.id, from: m.id, text: t, t: Date.now(), read: [m.id] });
+        }
         save(); f.reset(); fillMsgs(true); f.t.focus();
     },
     newtech: function (f) {
@@ -1593,6 +1831,8 @@ window.addEventListener('storage', function (e) { if (e.key === DB_KEY) poll(); 
 setInterval(poll, 1200);
 if (!SS.getItem(SES) && LS.getItem('tam_rem')) SS.setItem(SES, LS.getItem('tam_rem'));
 loadDB();
+purge();
+setInterval(function () { if (typeof db !== 'undefined' && db) purge(); }, 30000);
 applyTheme();
 if (me()) { known = {}; notifyScan(true); renderApp(); }
 else renderAuth();
@@ -1667,6 +1907,7 @@ function apply() {
     else if (!document.getElementById('view')) { W.known = {}; W.notifyScan(true); W.renderApp(); }
     else { W.notifyScan(first); W.refresh(); }
     first = false;
+    if (W.purge) W.purge();
 }
 try {
     fs = getFirestore(initializeApp(cfg));
